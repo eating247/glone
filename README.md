@@ -4,8 +4,11 @@ For this project, you will be building a lightweight Gmail inbox clone using the
 
 ## Project Overview
 
-Your task is to create a functional Gmail inbox clone that allows users to view, interact with, and manage emails. You're expected to complete this task in **up to 3 hours**.
+Your task is to create a functional Gmail inbox clone that allows users to view, interact with, and manage emails. You're expected to complete this task in **up to 3 hours**. If you run out of time, it's ok to to submit an incomplete project, and note down any further steps you would have taken if time permitted. In the chance you are able to complete this in less time than expected, feel free to add some more features as you see fit- this is a great opportunity to show off areas of the stack you are particularly experienced with/excited about.
 
+### Use The Tools You Use!
+
+We aren't prescriptive about which text editor or tools you use. You should feel free to use any resources, AI tools, etc. that you normally use. Just make sure the code is your own and you're able to explain the choices you made.
 
 ### What You Need to Build
 
@@ -31,7 +34,6 @@ Create an email inbox interface that includes the following features:
 - **Real Email Integration**: This is a mock interface only
 - **Advanced Features**: Focus on core functionality and maintainability over bells and whistles
 
-If you are able to complete this in less time than expected, feel free to add some more features as you see fit. This is a great opportunity to show off areas of the stack you are particularly experienced with/excited about.
 
 ## Getting Started
 
