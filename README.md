@@ -1,6 +1,7 @@
-# Slope Take-Home Interview Project: Gmail Clone
+# Gmail clone
 
-For this project, you will be building a lightweight Gmail inbox clone using the provided starter code. For this project you will be using **Next.js**, **Nest.js**, and **Prisma** connected to a **SQLite** database.
+For this project, you will be building a lightweight Gmail inbox clone using the provided starter code using **Next.js**, **Nest.js**, and **Prisma** connected to a **SQLite** database.
+
 
 ## Project Overview
 
