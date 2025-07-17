@@ -20,6 +20,11 @@ export class EmailsController {
     return this.emailsService.findAll(priority);
   }
 
+  @Get('search')
+  search(@Query('q') query?: string) {
+    return this.emailsService.search(query);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.emailsService.findOne(id);

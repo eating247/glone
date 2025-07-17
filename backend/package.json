@@ -8,7 +8,12 @@
     "build": "nest build",
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write .",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage"
   },
   "keywords": [],
   "author": "",
@@ -18,7 +23,8 @@
     "@nestjs/common": "^11.1.2",
     "@nestjs/core": "^11.1.2",
     "@nestjs/platform-express": "^11.1.2",
-    "@prisma/client": "^6.8.2"
+    "@prisma/client": "^6.8.2",
+    "mysql2": "^3.14.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.7",

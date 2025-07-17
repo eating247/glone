@@ -2,46 +2,52 @@ import { Email } from '@/types/email';
 
 const API_BASE_URL = 'http://localhost:3001';
 
-export const emailAPI = {
-  async health(): Promise<boolean> {
+async function handleResponse(res: Response) {
+  if (!res.ok) {
+    let errorMsg = `Request failed: ${res.status}`;
     try {
-      const response = await fetch(`${API_BASE_URL}/health`);
-      return response.ok;
-    } catch {
-      return false;
-    }
-  },
+      const errorData = await res.json();
+      errorMsg = errorData.message || errorMsg;
+    } catch {}
+    throw new Error(errorMsg);
+  }
+  return res.json();
+}
 
+export const emailAPI = {
   async fetchAll(priority?: string): Promise<Email[]> {
     const query = priority ? `?priority=${priority}` : '';
     const response = await fetch(`${API_BASE_URL}/emails${query}`, {
       cache: 'no-store',
     });
+    return handleResponse(response);
+  },
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch emails: ${response.status}`);
-    }
+  async search(query?: string): Promise<Email[]> {
+    const encodedQuery = encodeURIComponent(query.trim());
+    const response = await fetch(
+      `${API_BASE_URL}/emails/search?q=${encodedQuery}`,
+    );
 
-    return response.json();
+    return handleResponse(response);
   },
 
   toggleStar: async (id: number) => {
-    const res = await fetch(`${API_BASE_URL}/emails/${id}/star`, {
+    const response = await fetch(`${API_BASE_URL}/emails/${id}/star`, {
       method: 'PATCH',
     });
-    if (!res.ok) throw new Error('Failed to toggle star');
+    return handleResponse(response);
   },
 
   delete: async (id: number) => {
-    const res = await fetch(`${API_BASE_URL}/emails/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/emails/${id}`, {
       method: 'DELETE',
     });
-    if (!res.ok) throw new Error('Failed to delete email');
+    return handleResponse(response);
   },
 
   getOne: async (id: number) => {
-    const res = await fetch(`${API_BASE_URL}/emails/${id}`);
-    if (!res.ok) throw new Error('Email not found');
-    return res.json()
-  }
+    const response = await fetch(`${API_BASE_URL}/emails/${id}`);
+    return handleResponse(response);
+  },
 };

@@ -6,23 +6,25 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model Email {
-  id        Int   @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   from      String
   to        String
   subject   String
-  body      String
+  body      String   @db.Text  // Use TEXT type for longer content
   isRead    Boolean  @default(false)
   isStarred Boolean  @default(false)
   priority  Priority @default(NORMAL)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
-
+  
+  // Add fulltext index
+  @@fulltext([subject, body, from, to])
   @@map("emails")
 }
 

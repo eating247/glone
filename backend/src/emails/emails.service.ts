@@ -1,5 +1,10 @@
 // src/emails/emails.service.ts
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Email, Priority } from '@prisma/client';
 
@@ -23,25 +28,65 @@ export class EmailsService {
       low: 3,
     };
 
-    return emails.sort((a,b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+    return emails.sort(
+      (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority],
+    );
   }
 
-  findOne(id: number): Promise<Email> {
-    return this.prisma.email.findUniqueOrThrow({ where: { id } });
+  async findOne(id: number): Promise<Email> {
+    try {
+      return this.prisma.email.findUniqueOrThrow({ where: { id } });
+    } catch (error) {
+      throw new NotFoundException(`Email with ${id} not found`);
+    }
   }
 
   async toggleStar(id: number): Promise<Email> {
-    const email = await this.findOne(id);
-    return this.prisma.email.update({
-      where: { id },
-      data: { isStarred: !email.isStarred },
-    });
+    try {
+      const email = await this.findOne(id);
+      return this.prisma.email.update({
+        where: { id },
+        data: { isStarred: !email.isStarred },
+      });
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException('Failed to toggle star');
+    }
   }
 
-  delete(id: number): Promise<Email> {
-    return this.prisma.email.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+  async delete(id: number): Promise<Email> {
+    try {
+      await this.findOne(id);
+      return this.prisma.email.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException('Failed to delete email');
+    }
+  }
+
+  async search(query: string): Promise<Email[]> {
+    if (!query || !query.trim()) {
+      throw new BadRequestException('Query string is required');
+    }
+    const searchQuery = `
+      SELECT *, 
+             MATCH(subject, body, \`from\`, \`to\`) AGAINST(? IN NATURAL LANGUAGE MODE) as relevance
+      FROM emails 
+      WHERE MATCH(subject, body, \`from\`, \`to\`) AGAINST(? IN NATURAL LANGUAGE MODE)
+      AND deletedAt is NULL
+      ORDER BY relevance DESC
+      LIMIT 100
+    `;
+
+    const searchParams = [query, query];
+    try {
+      return await this.prisma.$queryRawUnsafe(searchQuery, ...searchParams);
+    } catch (error) {
+      console.log('search failed', error);
+      throw new InternalServerErrorException('Search failed');
+    }
   }
 }

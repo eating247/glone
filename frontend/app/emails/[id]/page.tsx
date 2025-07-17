@@ -4,8 +4,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
 export default async function EmailPage({ params }: { params: { id: string } }) {
-  const id = parseInt(params.id, 10);
-  if (isNaN(id)) return notFound();
+  const { id } = await params;
 
   const email = await emailAPI.getOne(id);
 

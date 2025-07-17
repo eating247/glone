@@ -1,122 +1,275 @@
 // app/EmailList.tsx
 'use client';
-
-import { useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Email } from '@/types/email';
+import EmailCard from './EmailCard';
 import { emailAPI } from '@/lib/api';
-import Link from 'next/link';
+import { Pagination } from './Pagination';
+import Search from './Search';
+import PriorityDropdown from './PriorityDropdown';
+import { PriorityFilter } from './constants';
 
-const PRIORITY_LABELS = {
-    ALL: 'All',
-    URGENT: 'Urgent',
-    HIGH: 'High',
-    NORMAL: 'Normal',
-    LOW: 'Low',
-  } as const;
-  
-
-type PriorityFilter = keyof typeof PRIORITY_LABELS;
+interface EmailListState {
+  emails: Email[];
+  loading: boolean;
+  error: string | null;
+  actionError: string | null;
+  priorityFilter: PriorityFilter;
+  currentPage: number;
+  emailsPerPage: number;
+  searchQuery: string;
+  isSearchMode: boolean;
+}
 
 export default function EmailList() {
-  const [emails, setEmails] = useState<Email[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('ALL');
+  const [searchInput, setSearchInput] = useState('');
+  const [state, setState] = useState<EmailListState>({
+    emails: [],
+    loading: true,
+    error: null,
+    actionError: null,
+    priorityFilter: 'ALL',
+    currentPage: 1,
+    emailsPerPage: 25,
+    searchQuery: '',
+    isSearchMode: false,
+  });
+  const {
+    emails,
+    loading,
+    error,
+    actionError,
+    priorityFilter,
+    currentPage,
+    emailsPerPage,
+    searchQuery,
+    isSearchMode,
+  } = state;
 
   useEffect(() => {
-    async function loadEmails() {
-      try {
-        const data = await emailAPI.fetchAll();
-        setEmails(data);
-      } catch (err: any) {
-        setError(err.message || 'Error loading emails');
-      }
-    }
-
     loadEmails();
   }, []);
 
-  async function handleToggleStar(id: number) {
+  useEffect(() => {
+    setState((prev) => ({ ...prev, currentPage: 1 }));
+  }, [priorityFilter]);
+
+  const loadEmails = async () => {
+    console.log('loading emails');
     try {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      console.log('About to call API'); // Add this -
+      const data = await emailAPI.fetchAll();
+      console.log('API response:', data); // Add this
+      setState((prev) => ({ ...prev, emails: data, loading: false }));
+      console.log('state should be updated');
+
+      setTimeout(() => {
+        console.log('State after update:', state);
+      }, 100);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Error loading emails';
+      setState((prev) => ({ ...prev, error: errorMessage, loading: false }));
+    }
+  };
+
+  const handleToggleStar = useCallback(async (id: number) => {
+    try {
+      setState((prev) => ({ ...prev, actionError: null }));
       await emailAPI.toggleStar(id);
-      setEmails((prev) =>
-        prev.map((email) =>
-          email.id === id ? { ...email, starred: !email.starred } : email
-        )
-      );
-    } catch (err: any) {
-      setError(err.message || 'Failed to toggle star');
+      setState((prev) => ({
+        ...prev,
+        emails: prev.emails.map((email) =>
+          email.id === id ? { ...email, isStarred: !email.isStarred } : email,
+        ),
+      }));
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to toggle star';
+      setState((prev) => ({ ...prev, actionError: errorMessage }));
     }
-  }
+  }, []);
 
-  async function handleDelete(id: number) {
+  const handleDelete = useCallback(async (id: number) => {
     try {
+      setState((prev) => ({ ...prev, actionError: null }));
       await emailAPI.delete(id);
-      setEmails((prev) => prev.filter((email) => email.id !== id));
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete email');
+      setState((prev) => ({
+        ...prev,
+        emails: prev.emails.filter((email) => email.id !== id),
+      }));
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to delete email';
+      setState((prev) => ({ ...prev, actionError: errorMessage }));
     }
+  }, []);
+
+  const handlePageChange = useCallback((page: number) => {
+    setState((prev) => ({ ...prev, currentPage: page }));
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handleEmailsPerPageChange = useCallback((perPage: number) => {
+    setState((prev) => ({
+      ...prev,
+      emailsPerPage: perPage,
+      currentPage: 1, // Reset to first page when changing page size
+    }));
+  }, []);
+
+  const filteredEmails = useMemo(
+    () =>
+      priorityFilter === 'ALL'
+        ? emails
+        : emails.filter((email) => email.priority === priorityFilter),
+    [emails, priorityFilter],
+  );
+
+  // Calculate pagination
+  const totalEmails = filteredEmails.length;
+  const totalPages = Math.ceil(totalEmails / emailsPerPage);
+  const startIndex = (currentPage - 1) * emailsPerPage;
+  const endIndex = startIndex + emailsPerPage;
+  const currentEmails = filteredEmails.slice(startIndex, endIndex);
+
+  // Calculate display range
+  const displayStart = totalEmails === 0 ? 0 : startIndex + 1;
+  const displayEnd = Math.min(endIndex, totalEmails);
+
+  const handlePriorityFilterChange = useCallback((filter: PriorityFilter) => {
+    setState((prev) => ({ ...prev, priorityFilter: filter }));
+  }, []);
+
+  const handleSearch = useCallback(async (query: string) => {
+    try {
+      setState((prev) => ({
+        ...prev,
+        loading: true,
+        error: null,
+        actionError: null,
+      }));
+      const results = await emailAPI.search(query);
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        isSearchMode: true,
+        searchQuery: query,
+        emails: results,
+        currentPage: 1,
+      }));
+      console.log(results);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Search failed';
+      setState((prev) => ({
+        ...prev,
+        actionError: errorMessage,
+        loading: false,
+      }));
+    }
+  }, []);
+
+  const handleClear = () => {
+    setSearchInput('');
+    setState((prev) => ({ ...prev, isSearchMode: false }));
+    loadEmails();
+  };
+
+  if (error) {
+    console.log(error);
   }
 
-  const filteredEmails =
-    priorityFilter === 'ALL'
-        ? emails
-        : emails.filter((email) => email.priority === priorityFilter);
-
-  if (error) return <div className="text-red-500">Error: {error}</div>;
+  if (loading) return <div className="text-gray-500">Loading emails...</div>;
+  // if (error) return <div className="text-red-500">Error: {error}</div>;
 
   return (
     <div>
+      {/* Search Component */}
+      <Search
+        searchInput={searchInput}
+        setSearchInput={setSearchInput}
+        onSearch={handleSearch}
+        onClear={handleClear}
+        isSearchMode={isSearchMode}
+      />
+
+      <div className="mb-4 flex gap-3">
         {/* Priority Dropdown */}
+        <PriorityDropdown
+          priorityFilter={priorityFilter}
+          onPriorityFilterChange={handlePriorityFilterChange}
+        />
+
+        {/* Emails per page selector */}
         <select
-        id="priority-filter"
-        value={priorityFilter}
-        onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)}
-        className="border rounded px-2 py-1"
+          value={emailsPerPage}
+          onChange={(e) => handleEmailsPerPageChange(Number(e.target.value))}
+          className="border rounded px-3 py-1 bg-white"
+          aria-label="Emails per page"
         >
-        {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
-            <option key={key} value={key}>
-            {label}
-            </option>
-        ))}
+          <option value={10}>10 per page</option>
+          <option value={25}>25 per page</option>
+          <option value={50}>50 per page</option>
+          <option value={100}>100 per page</option>
         </select>
+      </div>
 
-        {/* Email List */}
-      {filteredEmails.map((email) => (
-        <Link href={`/emails/${email.id}`} key={email.id}>
-            <div className="border p-4 rounded shadow-sm hover:shadow-md transition">
-            <div className="flex justify-between items-center">
-                <strong>{email.sender}</strong>
-                <span className="text-sm text-gray-500">{email.timestamp}</span>
-            </div>
-            <div className="font-semibold">{email.subject}</div>
-            <div className="text-sm text-gray-600">
-                <span className="capitalize">{email.priority}</span>
-            </div>
+      {/* Results info */}
+      <div className="text-sm text-gray-600">
+        {isSearchMode && (
+          <div className="text-sm text-gray-600">
+            Search results for "{searchQuery}" ({emails.length} found)
+          </div>
+        )}
+        Showing {displayStart}-{displayEnd} of {totalEmails} emails
+      </div>
 
-            <div className="flex space-x-4">
-                <button
-                    onClick={(e) => {
-                        e.preventDefault();
-                        handleToggleStar(email.id)}}
-                    className={`px-2 py-1 rounded ${
-                        email.starred ? 'bg-yellow-300' : 'bg-gray-200'
-                    }`}
-                    >
-                    {email.starred ? 'Unstar' : 'Star'}
-                </button>
+      {/* Error Display */}
+      {error && (
+        <div>
+          <strong>Error:</strong> {error}
+          <button
+            onClick={() => setState((prev) => ({ ...prev, error: null }))}
+          ></button>
+        </div>
+      )}
 
-                <button
-                    onClick={(e) => {
-                        e.preventDefault();
-                        handleDelete(email.id)}}
-                    className="px-2 py-1 rounded bg-red-400 text-white"
-                    >
-                    Delete
-                </button>
-            </div>
-            </div>
-        </Link>
-      ))}
+      {actionError && (
+        <div>
+          <strong>Error:</strong> {actionError}
+          <button
+            onClick={() => setState((prev) => ({ ...prev, actionError: null }))}
+          ></button>
+        </div>
+      )}
+
+      {/* Email List */}
+      {currentEmails.map((email) => {
+        return (
+          <EmailCard
+            key={email.id}
+            {...email}
+            onToggleStar={handleToggleStar}
+            onDelete={handleDelete}
+          />
+        );
+      })}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="border-t bg-gray-50 px-4 py-3">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            totalItems={totalEmails}
+            itemsPerPage={emailsPerPage}
+          />
+        </div>
+      )}
     </div>
   );
 }
